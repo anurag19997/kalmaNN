@@ -5,8 +5,8 @@ Neural q-learning demonstration with a simple game.
 """
 # Dependencies
 from __future__ import division
-from time import time, sleep
-from numpy import array, clip, sin, cos, pi as PI
+import os; os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
+from numpy import array, clip, sin, cos, arctan2, pi as PI
 from numpy.random import uniform
 import pygame
 #import kalmann
@@ -57,10 +57,11 @@ class PaddleBoi(object):
         # Set paddle position to center of domain
         self.paddle_x = (self.width - self.paddle_size) // 2
         self.paddle_y = self.height // 2
-        # Set random but valid ball position and heading angle
+        # Set random but valid ball position and direction
         self.ball_x = int(uniform(self.ball_size, self.width - self.ball_size))
         self.ball_y = int(uniform(self.ball_size, self.height - self.ball_size))
-        self.ball_a = uniform(0.0, 2*PI)
+        self.ball_dx = cos(uniform(0.0, 2*PI))
+        self.ball_dy = 1.0 - self.ball_dx**2
         # Set life-improvement score to minimum
         self.score = 0
 
@@ -76,7 +77,10 @@ class PaddleBoi(object):
         Returns an array of floats that encode your current situation.
 
         """
-        return array((self.paddle_x, self.ball_x, self.ball_y, self.ball_a), dtype=float)
+        return array((self.paddle_x,
+                      self.ball_x,
+                      self.ball_y,
+                      arctan2(self.ball_dy, self.ball_dx)), dtype=float)
 
     def update(self, decision):
         """
@@ -97,7 +101,12 @@ class PaddleBoi(object):
         # Prevent paddle from leaving the domain
         self.paddle_x = clip(self.paddle_x, 0, self.width - self.paddle_size)
         # Update ball position
-        pass # ???
+        self.ball_x = int(clip(self.ball_x + self.ball_speed*self.ball_dx, self.ball_size, self.width - self.ball_size))
+        self.ball_y = int(clip(self.ball_y + self.ball_speed*self.ball_dy, self.ball_size, self.height - self.ball_size))
+        if (self.ball_x <= self.ball_size) or (self.ball_x >= self.width - self.ball_size):
+            self.ball_dx *= -1.0
+        if (self.ball_y <= self.ball_size) or (self.ball_y >= self.height - self.ball_size):
+            self.ball_dy *= -1.0
         # Impose consequences
         pass # ???
 
@@ -139,8 +148,8 @@ class PaddleBoi(object):
         # Enter main loop
         playing = True
         while playing:
-            # Record current real time
-            start_time = time()
+            # Record current real time (in milliseconds)
+            start_time = pygame.time.get_ticks()
             # Draw current situation to the screen
             self.display(screen)
             # Use policy or human input to make decision
@@ -164,9 +173,9 @@ class PaddleBoi(object):
                 elif (event.type == pygame.KEYDOWN) and (event.key == pygame.K_r):
                     self.reset()
             # Rest for amount of real time alloted per loop less what was used
-            remaining_time = (1.0/rate) - (time()-start_time)
-            if remaining_time > 0.0:
-                sleep(remaining_time)
+            remaining_time = (1000//rate) - (pygame.time.get_ticks() - start_time)
+            if remaining_time > 0:
+                pygame.time.wait(remaining_time)
 
 ################################################## MAIN
 
